@@ -223,6 +223,11 @@ export async function listSessions() {
   return store.sessions;
 }
 
+export async function getSessionById(sessionId: string) {
+  const store = await readStore();
+  return store.sessions.find((session) => session.id === sessionId) ?? null;
+}
+
 export async function listLiveSessions() {
   const store = await readStore();
   return store.sessions.filter((session) => session.status !== "complete");

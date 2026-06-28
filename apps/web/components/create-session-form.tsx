@@ -25,6 +25,10 @@ type State = {
   createdSession: CreatedSession | null;
 };
 
+const SESSION_POLL_INTERVAL_MS = 5_000;
+const HIDDEN_TAB_POLL_INTERVAL_MS = 30_000;
+const MAX_SESSION_POLL_MS = 10 * 60 * 1000;
+
 export function CreateSessionForm({ films }: { films: FilmOption[] }) {
   const [state, setState] = useState<State>({ error: null, createdSession: null });
   const [filmOptions, setFilmOptions] = useState<FilmOption[]>([]);
@@ -47,35 +51,67 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
     }
 
     let cancelled = false;
+    let timeoutId: number | undefined;
+    let controller: AbortController | undefined;
+    const startedAt = Date.now();
     const sessionId = createdSession.id;
 
     async function pollSession() {
+      if (cancelled) {
+        return;
+      }
+
+      if (Date.now() - startedAt > MAX_SESSION_POLL_MS) {
+        return;
+      }
+
+      controller = new AbortController();
+
       try {
-        const response = await fetch("/api/web/sessions", { cache: "no-store" });
-        const payload = (await response.json()) as { sessions?: CreatedSession[] };
-        const latest = payload.sessions?.find((session) => session.id === sessionId);
+        const response = await fetch(`/api/web/sessions/${encodeURIComponent(sessionId)}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const payload = (await response.json()) as { session?: CreatedSession };
+        const latest = payload.session;
 
         if (!cancelled && latest) {
           setState((current) => ({
             ...current,
-            createdSession: latest,
+            createdSession:
+              current.createdSession?.status === latest.status &&
+              current.createdSession.deviceModel === latest.deviceModel
+                ? current.createdSession
+                : latest,
           }));
         }
       } catch {
         // Keep the visible created-session confirmation. The next poll can recover.
+      } finally {
+        controller = undefined;
+
+        if (!cancelled && Date.now() - startedAt <= MAX_SESSION_POLL_MS) {
+          timeoutId = window.setTimeout(
+            () => {
+              void pollSession();
+            },
+            document.hidden ? HIDDEN_TAB_POLL_INTERVAL_MS : SESSION_POLL_INTERVAL_MS,
+          );
+        }
       }
     }
 
-    const intervalId = window.setInterval(() => {
-      void pollSession();
-    }, 2500);
     void pollSession();
 
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      controller?.abort();
+
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
     };
-  }, [createdSession, watchHasPaired]);
+  }, [createdSession?.id, watchHasPaired]);
 
   async function searchFilms() {
     const query = filmQuery.trim();

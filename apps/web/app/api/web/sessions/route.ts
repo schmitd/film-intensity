@@ -2,10 +2,19 @@ import { NextResponse } from "next/server";
 
 import { createFilmSessionRequestSchema } from "@film-intensity/shared";
 
-import { createSession, listSessions } from "../../../../lib/store";
+import { createSession } from "../../../../lib/store";
 
 export async function GET() {
-  return NextResponse.json({ sessions: await listSessions() });
+  return NextResponse.json(
+    { error: "Use /api/web/sessions/{sessionId} to read session status." },
+    {
+      status: 405,
+      headers: {
+        allow: "POST",
+        "cache-control": "no-store",
+      },
+    },
+  );
 }
 
 export async function POST(request: Request) {
