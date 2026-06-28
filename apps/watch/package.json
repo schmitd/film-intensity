@@ -1,0 +1,13 @@
+{
+  "name": "@film-intensity/watch",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "sdk:install": "bash ./scripts/sdk-install.sh",
+    "build": "bash ./scripts/build.sh",
+    "sim": "bash ./scripts/sim.sh",
+    "export": "bash ./scripts/export.sh",
+    "lint": "echo 'Garmin Connect IQ validation requires the SDK and Monkey C tools.'",
+    "typecheck": "echo 'Monkey C type validation runs through the Garmin compiler.'"
+  }
+}

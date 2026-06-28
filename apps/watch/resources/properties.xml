@@ -1,0 +1,16 @@
+<resources xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://developer.garmin.com/downloads/connect-iq/resources.xsd">
+  <properties>
+    <property id="api_base_url" type="string"></property>
+  </properties>
+
+  <strings>
+    <string id="api_base_url_title">Backend URL</string>
+    <string id="api_base_url_prompt">https://your-app.vercel.app</string>
+  </strings>
+
+  <settings>
+    <setting propertyKey="@Properties.api_base_url" title="@Strings.api_base_url_title" prompt="@Strings.api_base_url_prompt">
+      <settingConfig type="alphaNumeric" />
+    </setting>
+  </settings>
+</resources>

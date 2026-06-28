@@ -1,0 +1,8 @@
+.git
+.tmp
+.tools
+.turbo
+node_modules
+data
+apps/watch/build
+apps/watch/export

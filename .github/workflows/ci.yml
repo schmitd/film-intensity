@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  shared-and-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @film-intensity/shared test
+      - run: pnpm --filter @film-intensity/shared typecheck
+      - run: pnpm --filter @film-intensity/worker typecheck
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @film-intensity/web typecheck
+      - run: pnpm --filter @film-intensity/web build
+
+  watch:
+    runs-on: ubuntu-latest
+    if: ${{ vars.MONKEYC_BIN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "Configure Garmin SDK tooling on the runner before enabling this job."

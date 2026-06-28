@@ -1,0 +1,29 @@
+{
+  "name": "film-intensity",
+  "private": true,
+  "packageManager": "pnpm@10.5.2",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "build": "turbo run build --filter=!@film-intensity/watch",
+    "build:all": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "watch:sdk": "pnpm --filter @film-intensity/watch sdk:install",
+    "watch:build": "turbo run build --filter=@film-intensity/watch",
+    "watch:sim": "turbo run sim --filter=@film-intensity/watch",
+    "worker:run": "turbo run dev --filter=@film-intensity/worker"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "next": "^15.5.6",
+    "prettier": "^3.6.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.3"
+  }
+}
