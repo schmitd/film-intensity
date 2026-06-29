@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   activeDeviceSessionResponseSchema,
   biometricSampleSchema,
+  schemaVersion,
+  sessionStartSchema,
 } from "./contracts";
 
 describe("biometricSampleSchema", () => {
@@ -40,5 +42,19 @@ describe("activeDeviceSessionResponseSchema", () => {
     });
 
     expect(parsed.session?.capabilities.hrv).toBe(true);
+  });
+});
+
+describe("sessionStartSchema", () => {
+  it("accepts the device recording-start payload", () => {
+    const parsed = sessionStartSchema.parse({
+      schemaVersion,
+      sessionId: "session_123",
+      deviceId: "garmin_abc",
+      deviceToken: "token_1234567890abcdef",
+      startedAt: "2026-06-29T00:00:00.000Z",
+    });
+
+    expect(parsed.sessionId).toBe("session_123");
   });
 });

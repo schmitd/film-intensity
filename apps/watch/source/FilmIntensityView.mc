@@ -30,7 +30,7 @@ class FilmIntensityView extends WatchUi.View {
     function onUpdate(dc) {
         var layoutWidth = dc.getWidth();
         var layoutHeight = dc.getHeight();
-        var gutter = 46;
+        var gutter = 54;
         var contentWidth = layoutWidth - (gutter * 2);
         var centerX = layoutWidth / 2;
         var phase = _manager.getPhaseLabel();
@@ -98,11 +98,11 @@ class FilmIntensityView extends WatchUi.View {
 
     hidden function drawRecordingScreen(dc, x, width, centerX, height, phase) as Void {
         var score = _manager.getIntensityScore();
-        var primaryY = 106;
-        var barY = 238;
+        var primaryY = 104;
+        var barY = 236;
 
         dc.setColor(_muted, Graphics.COLOR_TRANSPARENT);
-        drawFittedText(dc, centerX, primaryY, Graphics.FONT_XTINY, _manager.getProgressLabel(), 250, Graphics.TEXT_JUSTIFY_CENTER);
+        drawFittedText(dc, centerX, primaryY, Graphics.FONT_XTINY, _manager.getProgressLabel(), width, Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(_muted, Graphics.COLOR_TRANSPARENT);
         dc.drawText(centerX, primaryY + 28, Graphics.FONT_XTINY, "INTENSITY", Graphics.TEXT_JUSTIFY_CENTER);
@@ -129,7 +129,7 @@ class FilmIntensityView extends WatchUi.View {
         drawMetricRow(dc, x, barY + 28, width);
 
         dc.setColor(_muted, Graphics.COLOR_TRANSPARENT);
-        drawFittedText(dc, centerX, height - 64, Graphics.FONT_XTINY, _manager.getUploadNote(), 230, Graphics.TEXT_JUSTIFY_CENTER);
+        drawFittedText(dc, centerX, height - 74, Graphics.FONT_XTINY, _manager.getUploadNote(), width - 18, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     hidden function drawMetricRow(dc, x, y, width) as Void {
@@ -148,16 +148,15 @@ class FilmIntensityView extends WatchUi.View {
 
     hidden function drawStopIndicator(dc, centerX, height) as Void {
         var squareSize = 16;
-        var x = centerX + 120;
-        var y = height - 108;
-        var radius = (height / 2) - 24;
+        var y = height - 48;
+        var label = _manager.getInstructionLabel();
+        var iconX = centerX - 66;
 
-        dc.setPenWidth(4);
-        dc.setColor(_stopRed, Graphics.COLOR_TRANSPARENT);
-        dc.drawArc(centerX, height / 2, radius, Graphics.ARC_CLOCKWISE, 331, 345);
-        dc.setPenWidth(1);
         dc.setColor(_stopRed, _stopRed);
-        dc.fillRectangle(x, y, squareSize, squareSize);
+        dc.fillRectangle(iconX, y + 2, squareSize, squareSize);
+
+        dc.setColor(_ink, Graphics.COLOR_TRANSPARENT);
+        drawFittedText(dc, centerX + 12, y, Graphics.FONT_XTINY, label, 122, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     hidden function drawBottomHint(dc, centerX, height) as Void {

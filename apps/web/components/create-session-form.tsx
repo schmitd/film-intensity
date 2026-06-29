@@ -25,14 +25,64 @@ type State = {
   createdSession: CreatedSession | null;
 };
 
-const SESSION_POLL_INTERVAL_MS = 5_000;
-const HIDDEN_TAB_POLL_INTERVAL_MS = 30_000;
-const MAX_SESSION_POLL_MS = 10 * 60 * 1000;
+const SETUP_SESSION_POLL_INTERVAL_MS = 15_000;
+const RECORDING_SESSION_POLL_INTERVAL_MS = 90_000;
+const UPLOADING_SESSION_POLL_INTERVAL_MS = 15_000;
+const HIDDEN_TAB_POLL_INTERVAL_MS = 120_000;
+const MAX_SESSION_POLL_MS = 4 * 60 * 60 * 1000;
+const SESSION_STATUS_ORDER: CreatedSession["status"][] = [
+  "created",
+  "paired",
+  "recording",
+  "uploading",
+  "complete",
+];
+const SESSION_STATUS_LABEL: Record<CreatedSession["status"], string> = {
+  created: "Waiting for watch",
+  paired: "Watch paired",
+  recording: "Recording",
+  uploading: "Uploading",
+  complete: "Complete",
+};
+const SESSION_STATUS_DETAIL: Record<CreatedSession["status"], string> = {
+  created: "Keep the watch app open. It will confirm this code automatically.",
+  paired: "Confirm the title on the watch and press SELECT when the movie starts.",
+  recording: "The watch is capturing live biometric samples for this screening.",
+  uploading: "The watch is sending samples. Keep it nearby until this completes.",
+  complete: "The screening is ready to review on the results page.",
+};
+
+function slugifyFilmTitle(title: string) {
+  return title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getSessionPollInterval(status: CreatedSession["status"]) {
+  if (document.hidden) {
+    return HIDDEN_TAB_POLL_INTERVAL_MS;
+  }
+
+  if (status === "recording") {
+    return RECORDING_SESSION_POLL_INTERVAL_MS;
+  }
+
+  if (status === "uploading") {
+    return UPLOADING_SESSION_POLL_INTERVAL_MS;
+  }
+
+  return SETUP_SESSION_POLL_INTERVAL_MS;
+}
 
 export function CreateSessionForm({ films }: { films: FilmOption[] }) {
   const [state, setState] = useState<State>({ error: null, createdSession: null });
   const [filmOptions, setFilmOptions] = useState<FilmOption[]>([]);
   const [filmQuery, setFilmQuery] = useState("");
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualRuntimeMinutes, setManualRuntimeMinutes] = useState("");
+  const [isManualEntry, setIsManualEntry] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [pairCode, setPairCode] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
@@ -44,17 +94,30 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
   const watchHasPaired = createdSession
     ? createdSession.status !== "created" || Boolean(createdSession.deviceModel)
     : false;
+  const manualRuntime = Number.parseInt(manualRuntimeMinutes, 10);
+  const manualSlug = slugifyFilmTitle(manualTitle);
+  const manualFilm =
+    isManualEntry && manualSlug && Number.isInteger(manualRuntime) && manualRuntime > 0
+      ? {
+          id: `manual-${manualSlug}`,
+          title: manualTitle.trim(),
+          runtimeMinutes: manualRuntime,
+        }
+      : null;
+  const filmForSession = isManualEntry ? manualFilm : selectedFilm;
 
   useEffect(() => {
-    if (!createdSession || watchHasPaired) {
+    if (!createdSession || createdSession.status === "complete") {
       return;
     }
 
     let cancelled = false;
     let timeoutId: number | undefined;
     let controller: AbortController | undefined;
+    let reachedTerminalState = false;
     const startedAt = Date.now();
     const sessionId = createdSession.id;
+    const initialStatus = createdSession.status;
 
     async function pollSession() {
       if (cancelled) {
@@ -66,6 +129,7 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
       }
 
       controller = new AbortController();
+      let nextPollStatus: CreatedSession["status"] = initialStatus;
 
       try {
         const response = await fetch(`/api/web/sessions/${encodeURIComponent(sessionId)}`, {
@@ -76,6 +140,8 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
         const latest = payload.session;
 
         if (!cancelled && latest) {
+          reachedTerminalState = latest.status === "complete";
+          nextPollStatus = latest.status;
           setState((current) => ({
             ...current,
             createdSession:
@@ -90,12 +156,12 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
       } finally {
         controller = undefined;
 
-        if (!cancelled && Date.now() - startedAt <= MAX_SESSION_POLL_MS) {
+        if (!cancelled && !reachedTerminalState && Date.now() - startedAt <= MAX_SESSION_POLL_MS) {
           timeoutId = window.setTimeout(
             () => {
               void pollSession();
             },
-            document.hidden ? HIDDEN_TAB_POLL_INTERVAL_MS : SESSION_POLL_INTERVAL_MS,
+            getSessionPollInterval(nextPollStatus),
           );
         }
       }
@@ -111,7 +177,7 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [createdSession?.id, watchHasPaired]);
+  }, [createdSession?.id, createdSession?.status]);
 
   async function searchFilms() {
     const query = filmQuery.trim();
@@ -127,21 +193,29 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
       const payload = (await response.json()) as { films?: FilmOption[]; error?: string };
 
       if (!response.ok || !payload.films) {
-        setSearchError(payload.error ?? "Unable to search films.");
+        setSearchError("Movie search is unavailable. Enter the film manually to continue.");
         return;
       }
 
       setFilmOptions(payload.films);
+      setIsManualEntry(false);
       setSelectedFilm(payload.films[0] ?? null);
-      setSearchError(payload.films.length ? null : "No matching movies found.");
+      setSearchError(payload.films.length ? null : "No matching movies found. Enter the title manually.");
+    } catch {
+      setSearchError("Movie search is unavailable. Enter the film manually to continue.");
     } finally {
       setIsSearching(false);
     }
   }
 
   async function submit() {
-    if (!selectedFilm) {
-      setState({ createdSession: null, error: "Search for a movie and select a result first." });
+    if (!filmForSession) {
+      setState({
+        createdSession: null,
+        error: isManualEntry
+          ? "Enter a film title and runtime before creating a session."
+          : "Search for a movie and select a result first.",
+      });
       return;
     }
 
@@ -156,9 +230,9 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          filmId: selectedFilm.id,
-          filmTitle: selectedFilm.title,
-          runtimeMinutes: selectedFilm.runtimeMinutes,
+          filmId: filmForSession.id,
+          filmTitle: filmForSession.title,
+          runtimeMinutes: filmForSession.runtimeMinutes,
           pairCode: normalizedPairCode,
           consentAccepted,
         }),
@@ -226,7 +300,7 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
             </button>
           </div>
 
-          {selectedFilm ? (
+          {selectedFilm && !isManualEntry ? (
             <div className="selected-film" aria-live="polite">
               <span>Selected</span>
               <strong>
@@ -242,7 +316,10 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
                 <li key={film.id}>
                   <button
                     className={`search-result ${selectedFilm?.id === film.id ? "is-selected" : ""}`}
-                    onClick={() => setSelectedFilm(film)}
+                    onClick={() => {
+                      setIsManualEntry(false);
+                      setSelectedFilm(film);
+                    }}
                     type="button"
                   >
                     <span>
@@ -262,7 +339,10 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
                   <button
                     className={`button button-secondary ${selectedFilm?.id === film.id ? "is-selected" : ""}`}
                     key={film.id}
-                    onClick={() => setSelectedFilm(film)}
+                    onClick={() => {
+                      setIsManualEntry(false);
+                      setSelectedFilm(film);
+                    }}
                     type="button"
                   >
                     {film.title}
@@ -276,6 +356,57 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
             <p className="form-error" role="alert">
               {searchError}
             </p>
+          ) : null}
+
+          <div className="manual-film-panel">
+            <button
+              className="button button-secondary"
+              onClick={() => {
+                setIsManualEntry((current) => !current);
+                setSearchError(null);
+                if (!manualTitle && filmQuery.trim()) {
+                  setManualTitle(filmQuery.trim());
+                }
+              }}
+              type="button"
+            >
+              {isManualEntry ? "Use movie search" : "Enter film manually"}
+            </button>
+
+            {isManualEntry ? (
+              <div className="manual-film-fields">
+                <label className="field-stack">
+                  <span>Film title</span>
+                  <input
+                    name="manualTitle"
+                    onChange={(event) => setManualTitle(event.currentTarget.value)}
+                    placeholder="Film title"
+                    value={manualTitle}
+                  />
+                </label>
+                <label className="field-stack">
+                  <span>Runtime minutes</span>
+                  <input
+                    inputMode="numeric"
+                    min={1}
+                    name="manualRuntimeMinutes"
+                    onChange={(event) => setManualRuntimeMinutes(event.currentTarget.value)}
+                    placeholder="120"
+                    type="number"
+                    value={manualRuntimeMinutes}
+                  />
+                </label>
+              </div>
+            ) : null}
+          </div>
+
+          {manualFilm ? (
+            <div className="selected-film" aria-live="polite">
+              <span>Manual film</span>
+              <strong>
+                {manualFilm.title} · {manualFilm.runtimeMinutes} min
+              </strong>
+            </div>
           ) : null}
         </fieldset>
 
@@ -313,7 +444,7 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
           className="button-primary"
           disabled={
             isPending ||
-            !selectedFilm ||
+            !filmForSession ||
             !consentAccepted ||
             pairCode.replace(/\s+/g, "").length < 6
           }
@@ -332,21 +463,41 @@ export function CreateSessionForm({ films }: { films: FilmOption[] }) {
       {state.createdSession ? (
         <div className="pairing-card" role="status">
           <div className="pairing-card__copy">
-            <span className={`pill ${watchHasPaired ? "pill-success" : "pill-waiting"}`}>
-              {watchHasPaired ? "Watch paired" : "Waiting for watch"}
+            <span
+              className={`pill ${
+                state.createdSession.status === "complete"
+                  ? "pill-success"
+                  : watchHasPaired
+                    ? "pill-active"
+                    : "pill-waiting"
+              }`}
+            >
+              {SESSION_STATUS_LABEL[state.createdSession.status]}
             </span>
             <h3>{state.createdSession.filmTitle}</h3>
-            <p>
-              {watchHasPaired
-                ? `${state.createdSession.deviceModel ?? "Garmin watch"} is ready. Confirm the title on the watch.`
-                : "Keep the watch app open. It will confirm this code automatically."}
-            </p>
+            <p>{SESSION_STATUS_DETAIL[state.createdSession.status]}</p>
           </div>
 
-          <ol className="watch-steps">
-            <li>Confirm the film title appears on the watch.</li>
-            <li>Press SELECT when the movie starts.</li>
-            <li>Press SELECT after the credits to stop and upload.</li>
+          <ol className="session-progress" aria-label="Session progress">
+            {SESSION_STATUS_ORDER.map((status) => {
+              const currentIndex = SESSION_STATUS_ORDER.indexOf(state.createdSession!.status);
+              const stepIndex = SESSION_STATUS_ORDER.indexOf(status);
+              return (
+                <li
+                  className={
+                    stepIndex < currentIndex
+                      ? "is-complete"
+                      : stepIndex === currentIndex
+                        ? "is-current"
+                        : ""
+                  }
+                  key={status}
+                >
+                  <span>{stepIndex + 1}</span>
+                  <strong>{SESSION_STATUS_LABEL[status]}</strong>
+                </li>
+              );
+            })}
           </ol>
 
           <div className="pairing-actions">

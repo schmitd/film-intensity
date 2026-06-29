@@ -2,9 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-SDK_ROOT="${SDK_ROOT:-$REPO_ROOT/.tools/connectiq-sdk}"
-CURRENT_SDK_CFG="$SDK_ROOT/current-sdk.cfg"
+source "$SCRIPT_DIR/sdk-env.sh"
+REPO_ROOT="$(watch_repo_root)"
 OUTPUT="${OUTPUT:-export/film-intensity.iq}"
 DEVELOPER_KEY="${DEVELOPER_KEY:-}"
 export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Djava.awt.headless=true"
@@ -34,17 +33,11 @@ if [[ -n "${BACKEND_URL:-}" ]]; then
 fi
 
 if [[ -z "${MONKEYC_BIN:-}" ]]; then
-  if [[ -f "$CURRENT_SDK_CFG" ]]; then
-    SDK_HOME="$(cat "$CURRENT_SDK_CFG")"
-  else
-    SDK_HOME="$(find "$SDK_ROOT" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-  fi
-
+  SDK_HOME="$(watch_sdk_home "$REPO_ROOT")"
   MONKEYC_BIN="${SDK_HOME:-}/bin/monkeyc"
 fi
 
-if [[ -z "$MONKEYC_BIN" ]]; then
-  echo "MONKEYC_BIN is not set. Point it at your Garmin SDK monkeyc executable."
+if ! watch_require_executable "Monkey C compiler" "$MONKEYC_BIN" "Run: pnpm --filter @film-intensity/watch sdk:install"; then
   exit 1
 fi
 

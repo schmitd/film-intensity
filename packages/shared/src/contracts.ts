@@ -84,6 +84,14 @@ export const sessionBatchSchema = z.object({
   samples: z.array(biometricSampleSchema).min(1),
 });
 
+export const sessionStartSchema = z.object({
+  schemaVersion: z.literal(schemaVersion),
+  sessionId: z.string(),
+  deviceId: z.string(),
+  deviceToken: z.string(),
+  startedAt: z.string().datetime(),
+});
+
 export const sessionCompleteSchema = z.object({
   schemaVersion: z.literal(schemaVersion),
   sessionId: z.string(),
@@ -132,6 +140,7 @@ export type CreateFilmSessionResponse = z.infer<
   typeof createFilmSessionResponseSchema
 >;
 export type SessionBatch = z.infer<typeof sessionBatchSchema>;
+export type SessionStart = z.infer<typeof sessionStartSchema>;
 export type SessionComplete = z.infer<typeof sessionCompleteSchema>;
 export type SessionStatus = z.infer<typeof sessionStatusSchema>;
 export type FilmIntensityBucket = z.infer<typeof filmIntensityBucketSchema>;

@@ -33,6 +33,10 @@ class SessionManager {
     hidden var _pendingBatch = null;
     hidden var _completionRequested = false;
     hidden var _requestInFlight = false;
+    hidden var _nextPairAttemptAt = 0;
+    hidden var _pairRetryCooldownSeconds = 30;
+    hidden var _uploadBatchThreshold = 24;
+    hidden var _uploadBatchSize = 30;
     hidden var _nextUploadAttemptAt = 0;
     hidden var _uploadRetryCooldownSeconds = 60;
     hidden var _sessionIdKey = "activeSessionId";
@@ -130,6 +134,14 @@ class SessionManager {
             return;
         }
 
+        var now = Time.now().value();
+
+        if (now < _nextPairAttemptAt) {
+            _uploadNote = "Pair retry paused";
+            WatchUi.requestUpdate();
+            return;
+        }
+
         if (_pairCode.length() < 6) {
             _uploadNote = "Enter this watch code on web";
             WatchUi.requestUpdate();
@@ -171,6 +183,7 @@ class SessionManager {
         _pendingBatch = null;
         _uploadNote = "Capturing live heart data";
         persistUploadState();
+        requestRecordingStart();
         startSensorCapture();
         WatchUi.requestUpdate();
     }
@@ -212,7 +225,8 @@ class SessionManager {
 
     function onTick() as Void {
         if (_phase == "IDLE") {
-            primeSession();
+            _uploadNote = "SELECT to pair";
+            WatchUi.requestUpdate();
             return;
         }
 
@@ -224,7 +238,7 @@ class SessionManager {
             captureSample();
         }
 
-        if (!_requestInFlight && uploadRetryReady() && (_phase == "UPLOADING" || _buffer.queuedCount() >= 3)) {
+        if (!_requestInFlight && uploadRetryReady() && (_phase == "UPLOADING" || _buffer.queuedCount() >= _uploadBatchThreshold)) {
             flushUpload();
         }
 
@@ -323,7 +337,7 @@ class SessionManager {
             return;
         }
 
-        _pendingBatch = _buffer.takeBatch(6);
+        _pendingBatch = _buffer.takeBatch(_uploadBatchSize);
         _requestInFlight = true;
         _phase = "UPLOADING";
         _uploadNote = "Uploading " + _pendingBatch.size() + " samples";
@@ -360,13 +374,46 @@ class SessionManager {
         );
     }
 
+    hidden function requestRecordingStart() as Void {
+        if (_sessionId == null || _deviceToken == null || _requestInFlight) {
+            return;
+        }
+
+        _requestInFlight = true;
+
+        _api.startSession(
+            _sessionId,
+            _deviceId,
+            _deviceToken,
+            method(:onRecordingStarted)
+        );
+    }
+
+    function onRecordingStarted(responseCode as Number, data) as Void {
+        _requestInFlight = false;
+
+        if (_phase != "RECORDING") {
+            WatchUi.requestUpdate();
+            return;
+        }
+
+        if (responseCode == 200) {
+            _uploadNote = "Recording synced to web";
+        } else {
+            _uploadNote = "Recording; web sync pending";
+        }
+
+        WatchUi.requestUpdate();
+    }
+
     function onPairResponse(responseCode as Number, data) as Void {
         _requestInFlight = false;
 
         if (responseCode != 200 || data == null || data["deviceToken"] == null) {
             _phase = "IDLE";
+            _nextPairAttemptAt = Time.now().value() + _pairRetryCooldownSeconds;
             if (responseCode == 404) {
-                _uploadNote = "Waiting for web session";
+                _uploadNote = "No web session yet";
             } else {
                 _uploadNote = "Pair failed: " + responseCode;
             }
@@ -375,6 +422,7 @@ class SessionManager {
         }
 
         _deviceToken = data["deviceToken"];
+        _nextPairAttemptAt = 0;
         _settings.setDeviceToken(_deviceToken);
         _sessionId = data["activeSessionId"];
         _uploadNote = "Session paired. Loading film";

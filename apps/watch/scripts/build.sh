@@ -2,10 +2,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/sdk-env.sh"
 APP_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$APP_DIR/../.." && pwd)"
-SDK_ROOT="${SDK_ROOT:-$REPO_ROOT/.tools/connectiq-sdk}"
-CURRENT_SDK_CFG="$SDK_ROOT/current-sdk.cfg"
+REPO_ROOT="$(watch_repo_root)"
 DEVICE="${DEVICE:-}"
 if [[ -n "$DEVICE" ]]; then
   OUTPUT="${OUTPUT:-build/film-intensity-$DEVICE.prg}"
@@ -39,23 +38,11 @@ if [[ -n "${BACKEND_URL:-}" ]]; then
 fi
 
 if [[ -z "${MONKEYC_BIN:-}" ]]; then
-  if [[ -f "$CURRENT_SDK_CFG" ]]; then
-    SDK_HOME="$(cat "$CURRENT_SDK_CFG")"
-  else
-    SDK_HOME="$(find "$SDK_ROOT" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
-  fi
-
+  SDK_HOME="$(watch_sdk_home "$REPO_ROOT")"
   MONKEYC_BIN="${SDK_HOME:-}/bin/monkeyc"
 fi
 
-if [[ -z "$MONKEYC_BIN" ]]; then
-  echo "MONKEYC_BIN is not set. Point it at your Garmin SDK monkeyc executable."
-  exit 1
-fi
-
-if [[ ! -x "$MONKEYC_BIN" ]]; then
-  echo "Monkey C compiler not found at $MONKEYC_BIN"
-  echo "Run: pnpm --filter @film-intensity/watch sdk:install"
+if ! watch_require_executable "Monkey C compiler" "$MONKEYC_BIN" "Run: pnpm --filter @film-intensity/watch sdk:install"; then
   exit 1
 fi
 
@@ -71,7 +58,12 @@ fi
 mkdir -p "$(dirname "$OUTPUT")"
 
 if [[ -n "$DEVICE" ]]; then
-  "$MONKEYC_BIN" -f monkey.jungle -o "$OUTPUT" -d "$DEVICE" -y "$DEVELOPER_KEY" -w
+  if ! "$MONKEYC_BIN" -f monkey.jungle -o "$OUTPUT" -d "$DEVICE" -y "$DEVELOPER_KEY" -w; then
+    echo
+    echo "Garmin device build failed for DEVICE=$DEVICE."
+    echo "If the compiler reports an invalid device id, install that device through the Connect IQ SDK Manager or set MONKEYC_BIN to a Garmin SDK installation with device libraries."
+    exit 1
+  fi
 else
   "$MONKEYC_BIN" -f monkey.jungle -o "$OUTPUT" -y "$DEVELOPER_KEY" -w
 fi

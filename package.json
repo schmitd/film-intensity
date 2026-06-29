@@ -11,8 +11,11 @@
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:e2e:api": "node scripts/e2e-api-smoke.mjs",
     "typecheck": "turbo run typecheck",
     "watch:sdk": "pnpm --filter @film-intensity/watch sdk:install",
+    "watch:sdk-manager": "pnpm --filter @film-intensity/watch sdk:manager",
+    "watch:check": "pnpm --filter @film-intensity/watch check",
     "watch:build": "turbo run build --filter=@film-intensity/watch",
     "watch:sim": "turbo run sim --filter=@film-intensity/watch",
     "worker:run": "turbo run dev --filter=@film-intensity/worker"

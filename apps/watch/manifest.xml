@@ -4,11 +4,11 @@
     entry="FilmIntensityApp"
     id="3ea9e7e0-0f8e-4b53-8b85-7ca4cd67f0d2"
     launcherIcon="@Drawables.LauncherIcon"
-    minApiLevel="5.1.0"
+    minApiLevel="5.0.0"
     name="@Strings.AppName"
     type="watch-app">
     <iq:products>
-      <iq:product id="f265"/>
+      <iq:product id="fr265"/>
       <iq:product id="fr965"/>
       <iq:product id="venu2"/>
       <iq:product id="venu3"/>
