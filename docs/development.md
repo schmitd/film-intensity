@@ -60,14 +60,18 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm watch:sdk
+pnpm watch:sdk-manager
+pnpm watch:check
 pnpm watch:build
 ```
 
 Notes:
 
 - `pnpm watch:sdk` downloads Garmin's official Linux SDK archive directly from Garmin's published `sdks.json` manifest into `.tools/connectiq-sdk/<version>` and records the active path in `.tools/connectiq-sdk/current-sdk.cfg`.
+- `pnpm watch:sdk-manager` opens Garmin's SDK Manager for authenticated simulator and device-library downloads. On Ubuntu 24.04/WSL it uses repo-local compatibility libraries because Garmin's manager still links against WebKitGTK 4.0.
+- `pnpm watch:check` is the fastest Monkey C feedback loop. It installs the SDK if needed, prints the active compiler version, and produces `apps/watch/build/film-intensity.prg`.
 - `pnpm watch:build` now generates a local development signing key automatically if `.tmp/garmin/developer_key.der` does not exist.
-- Simulator and target-specific device libraries are a separate Garmin concern. The compiler smoke build works from the raw SDK archive, but `DEVICE=venu3 pnpm --filter @film-intensity/watch build`, `pnpm --filter @film-intensity/watch sim`, and store export require the fuller device-library setup from Garmin's SDK Manager.
+- Simulator and target-specific device libraries are a separate Garmin concern. The compiler smoke build works from the raw SDK archive, but `DEVICE=venu3 pnpm --filter @film-intensity/watch build`, `pnpm --filter @film-intensity/watch sim`, and store export require the fuller simulator/device-library setup from Garmin's SDK Manager.
 
 ## Current Prototype Behavior
 

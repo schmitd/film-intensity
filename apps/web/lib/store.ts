@@ -13,6 +13,7 @@ import {
   type PairDeviceRequest,
   type SessionBatch,
   type SessionComplete,
+  type SessionStart,
   type SessionStatus,
   bucketizeSamples,
   extractIntenseMoments,
@@ -240,7 +241,10 @@ export async function getFilmById(filmId: string) {
 
 export async function createSession(input: CreateFilmSessionRequest) {
   const store = await readStore();
-  const filmId = input.filmId.startsWith("tmdb-") ? input.filmId : `tmdb-${input.filmId}`;
+  const filmId =
+    input.filmId.startsWith("tmdb-") || input.filmId.startsWith("manual-")
+      ? input.filmId
+      : `tmdb-${input.filmId}`;
   const existingFilm = store.films.find((film) => film.id === filmId);
 
   if (!existingFilm) {
@@ -331,6 +335,25 @@ export async function appendSamples(input: SessionBatch) {
 
   session.samples.push(...input.samples);
   session.status = "uploading";
+  await persistStore(store);
+
+  return session;
+}
+
+export async function startSession(input: SessionStart) {
+  const store = await readStore();
+  const session = store.sessions.find(
+    (candidate) =>
+      candidate.id === input.sessionId &&
+      candidate.deviceId === input.deviceId &&
+      candidate.deviceToken === input.deviceToken,
+  );
+
+  if (!session || session.status === "complete") {
+    return null;
+  }
+
+  session.status = "recording";
   await persistStore(store);
 
   return session;

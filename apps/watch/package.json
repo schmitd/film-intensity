@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "sdk:install": "bash ./scripts/sdk-install.sh",
+    "sdk:manager": "bash ./scripts/sdk-manager.sh",
+    "check": "bash ./scripts/check.sh",
     "build": "bash ./scripts/build.sh",
     "sim": "bash ./scripts/sim.sh",
     "export": "bash ./scripts/export.sh",

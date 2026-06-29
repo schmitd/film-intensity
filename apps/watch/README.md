@@ -12,6 +12,8 @@ Connect IQ device app scaffold for recording film biometrics.
 ## Scripts
 
 - `pnpm --filter @film-intensity/watch sdk:install`
+- `pnpm --filter @film-intensity/watch sdk:manager`
+- `pnpm --filter @film-intensity/watch check`
 - `pnpm --filter @film-intensity/watch build`
 - `pnpm --filter @film-intensity/watch sim`
 - `pnpm --filter @film-intensity/watch export`
@@ -19,6 +21,8 @@ Connect IQ device app scaffold for recording film biometrics.
 ## Prototype Configuration
 
 - Run `pnpm --filter @film-intensity/watch sdk:install` to download Garmin's official Linux SDK archive into the monorepo under `.tools/connectiq-sdk/<version>`.
+- Run `pnpm --filter @film-intensity/watch sdk:manager` to open Garmin's SDK Manager for authenticated simulator and device-library downloads.
+- Run `pnpm --filter @film-intensity/watch check` for the fastest feedback loop. It installs the SDK if needed, prints the active `monkeyc` version, and compiles `build/film-intensity.prg`.
 - Set `Backend URL` in the app settings through Garmin Connect Mobile or Garmin Express. Use the deployed web origin, for example `https://film-intensity.vercel.app`, with no trailing slash.
 - Launch the app and leave the 6-digit watch code visible.
 - Enter that watch code in the web app when creating the film session.
@@ -27,10 +31,11 @@ Connect IQ device app scaffold for recording film biometrics.
 Build modes:
 
 - `pnpm --filter @film-intensity/watch build` runs a compiler smoke build and writes `build/film-intensity.prg`.
+- `pnpm --filter @film-intensity/watch check` is the recommended local iteration command when editing Monkey C source.
 - `DEVICE=venu2 pnpm --filter @film-intensity/watch build` writes a Venu 2 PRG when Garmin device libraries are installed.
 - `BACKEND_URL=https://your-app.vercel.app DEVICE=venu2 pnpm --filter @film-intensity/watch build` bakes the deployed web origin into the PRG for sideload testing.
 - `pnpm --filter @film-intensity/watch export` uses Garmin's package mode for a store-ready `.iq` package and requires a real `DEVELOPER_KEY`.
-- The raw SDK archive is enough for compiler validation. Simulator/device-specific builds still require Garmin's device library setup from the SDK Manager.
+- The raw SDK archive is enough for compiler validation. Simulator/device-specific builds still require Garmin's device library and simulator setup from the SDK Manager.
 
 Current live support on-device:
 

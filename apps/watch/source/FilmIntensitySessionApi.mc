@@ -62,6 +62,21 @@ class FilmIntensitySessionApi {
         );
     }
 
+    function startSession(sessionId, deviceId, deviceToken, callback) {
+        makeRequest(
+            "/api/device/session-start",
+            {
+                "schemaVersion" => 1,
+                "sessionId" => sessionId,
+                "deviceId" => deviceId,
+                "deviceToken" => deviceToken,
+                "startedAt" => nowMillis()
+            },
+            Communications.HTTP_REQUEST_METHOD_POST,
+            callback
+        );
+    }
+
     function completeSession(sessionId, deviceId, deviceToken, totalSamples, capabilities, callback) {
         makeRequest(
             "/api/device/session-complete",
