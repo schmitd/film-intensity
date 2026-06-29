@@ -33,6 +33,8 @@ class SessionManager {
     hidden var _pendingBatch = null;
     hidden var _completionRequested = false;
     hidden var _requestInFlight = false;
+    hidden var _nextUploadAttemptAt = 0;
+    hidden var _uploadRetryCooldownSeconds = 60;
     hidden var _sessionIdKey = "activeSessionId";
     hidden var _filmTitleKey = "activeFilmTitle";
     hidden var _runtimeMinutesKey = "activeRuntimeMinutes";
@@ -222,7 +224,7 @@ class SessionManager {
             captureSample();
         }
 
-        if (!_requestInFlight && (_phase == "UPLOADING" || _buffer.queuedCount() >= 3)) {
+        if (!_requestInFlight && uploadRetryReady() && (_phase == "UPLOADING" || _buffer.queuedCount() >= 3)) {
             flushUpload();
         }
 
@@ -298,6 +300,12 @@ class SessionManager {
             return;
         }
 
+        if (!uploadRetryReady()) {
+            _uploadNote = "Upload retry paused";
+            WatchUi.requestUpdate();
+            return;
+        }
+
         if (_sessionId == null || _deviceToken == null) {
             _phase = "UPLOADING";
             _uploadNote = "Saved. Waiting to pair";
@@ -319,6 +327,7 @@ class SessionManager {
         _requestInFlight = true;
         _phase = "UPLOADING";
         _uploadNote = "Uploading " + _pendingBatch.size() + " samples";
+        _nextUploadAttemptAt = 0;
         persistUploadState();
 
         _api.uploadBatch(
@@ -338,6 +347,7 @@ class SessionManager {
         _requestInFlight = true;
         _phase = "UPLOADING";
         _uploadNote = "Closing the session";
+        _nextUploadAttemptAt = 0;
         persistUploadState();
 
         _api.completeSession(
@@ -407,6 +417,7 @@ class SessionManager {
             _buffer.prependSamples(_pendingBatch);
             _pendingBatch = null;
             _phase = _completionRequested ? "UPLOADING" : "RECORDING";
+            scheduleUploadRetry();
             _uploadNote = _completionRequested ? "Saved. Waiting for connection" : "Upload paused: " + responseCode;
             persistUploadState();
             WatchUi.requestUpdate();
@@ -431,6 +442,7 @@ class SessionManager {
 
         _buffer.markUploaded(acceptedSamples);
         _pendingBatch = null;
+        _nextUploadAttemptAt = 0;
         _uploadNote = "Uploaded " + acceptedSamples + " samples";
         persistUploadState();
 
@@ -448,6 +460,7 @@ class SessionManager {
 
         if (responseCode != 200 || data == null) {
             _phase = "UPLOADING";
+            scheduleUploadRetry();
             _uploadNote = "Saved. Waiting to close";
             persistUploadState();
             WatchUi.requestUpdate();
@@ -457,6 +470,7 @@ class SessionManager {
         _phase = "COMPLETE";
         _uploadNote = "Session delivered";
         _completionRequested = false;
+        _nextUploadAttemptAt = 0;
         _buffer.clear();
         clearUploadState();
         WatchUi.requestUpdate();
@@ -601,6 +615,14 @@ class SessionManager {
             "stress" => _capabilities[:stress],
             "hrv" => _capabilities[:hrv]
         };
+    }
+
+    hidden function uploadRetryReady() {
+        return Time.now().value() >= _nextUploadAttemptAt;
+    }
+
+    hidden function scheduleUploadRetry() as Void {
+        _nextUploadAttemptAt = Time.now().value() + _uploadRetryCooldownSeconds;
     }
 
     hidden function restoreUploadState() as Void {
