@@ -3,5 +3,10 @@
   "buildCommand": "pnpm --filter @film-intensity/web build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "apps/web/.next",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "agent/film-intensity-cloud-hardening-2026-10-05": false
+    }
+  }
 }

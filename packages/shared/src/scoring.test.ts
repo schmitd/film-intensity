@@ -24,6 +24,9 @@ describe("scoring", () => {
     const calmScore = computeSampleIntensity(demoSamples[0], baseline);
     const peakScore = computeSampleIntensity(demoSamples[7], baseline);
 
+    if (calmScore === null || peakScore === null)
+      throw new Error("Demo signals must remain scoreable");
+
     expect(peakScore).toBeGreaterThan(calmScore);
   });
 
@@ -33,11 +36,16 @@ describe("scoring", () => {
 
     expect(buckets.length).toBeGreaterThan(0);
     expect(moments).toHaveLength(3);
-    expect(moments[0]?.intensityScore).toBeGreaterThanOrEqual(moments[1]?.intensityScore ?? 0);
+    expect(moments[0]?.intensityScore).toBeGreaterThanOrEqual(
+      moments[1]?.intensityScore ?? 0,
+    );
   });
 
   it("summarizes bucket bands for UI usage", () => {
     const summary = summarizeBuckets(bucketizeSamples(demoSamples));
+
+    if (summary.averageIntensity === null)
+      throw new Error("Demo signals must remain scoreable");
 
     expect(summary.peakIntensity).toBeGreaterThan(summary.averageIntensity);
     expect(classifyIntensity(summary.peakIntensity)).toBe(summary.dominantBand);

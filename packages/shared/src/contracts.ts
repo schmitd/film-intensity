@@ -1,6 +1,21 @@
 import { z } from "zod";
 
 export const schemaVersion = 1;
+// Read-result shape only; device ingestion remains schemaVersion 1.
+export const intensityReadSchemaVersion = 2;
+export const dataStatusSchema = z.enum(["available", "insufficient-data"]);
+
+// Connect IQ sends epoch milliseconds; browser clients already send ISO strings.
+// Bound numeric input before conversion so safeParse never throws a RangeError.
+const deviceDateTimeSchema = z.union([
+  z.string().datetime(),
+  z
+    .number()
+    .int()
+    .min(0)
+    .max(8_640_000_000_000_000)
+    .transform((value) => new Date(value).toISOString()),
+]);
 export const sessionStatusSchema = z.enum([
   "created",
   "paired",
@@ -89,7 +104,7 @@ export const sessionStartSchema = z.object({
   sessionId: z.string(),
   deviceId: z.string(),
   deviceToken: z.string(),
-  startedAt: z.string().datetime(),
+  startedAt: deviceDateTimeSchema,
 });
 
 export const sessionCompleteSchema = z.object({
@@ -97,7 +112,7 @@ export const sessionCompleteSchema = z.object({
   sessionId: z.string(),
   deviceId: z.string(),
   deviceToken: z.string(),
-  completedAt: z.string().datetime(),
+  completedAt: deviceDateTimeSchema,
   totalSamples: z.number().int().min(0),
   capabilities: deviceCapabilitiesSchema,
 });
@@ -108,7 +123,9 @@ export const filmIntensityBucketSchema = z.object({
   averageHeartRateBpm: z.number().min(0).nullable(),
   averageStressLevel: z.number().min(0).max(100).nullable(),
   averageHrvRmssd: z.number().min(0).nullable(),
-  intensityScore: z.number().min(0).max(100),
+  intensityScore: z.number().min(0).max(100).nullable(),
+  dataStatus: dataStatusSchema.optional(),
+  usableSampleCount: z.number().int().min(0).optional(),
 });
 
 export const intenseMomentSchema = z.object({
@@ -119,9 +136,13 @@ export const intenseMomentSchema = z.object({
 });
 
 export const filmIntensitySummarySchema = z.object({
-  averageIntensity: z.number().min(0).max(100),
-  peakIntensity: z.number().min(0).max(100),
-  dominantBand: z.enum(["calm", "rising", "spike", "overdrive"]),
+  averageIntensity: z.number().min(0).max(100).nullable(),
+  peakIntensity: z.number().min(0).max(100).nullable(),
+  dominantBand: z.enum(["calm", "rising", "spike", "overdrive"]).nullable(),
+  dataStatus: dataStatusSchema.optional(),
+  totalSampleCount: z.number().int().min(0).optional(),
+  usableSampleCount: z.number().int().min(0).nullable().optional(),
+  sampleCoverage: z.number().min(0).max(1).nullable().optional(),
 });
 
 export type BiometricSample = z.infer<typeof biometricSampleSchema>;

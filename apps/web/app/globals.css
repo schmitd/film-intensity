@@ -750,6 +750,24 @@ p {
   background: var(--danger);
 }
 
+.curve-gap {
+  position: absolute;
+  bottom: 0;
+  height: 100%;
+  width: max(7px, 1.5%);
+  translate: -50% 0;
+  background: repeating-linear-gradient(135deg, transparent 0 5px, var(--line) 5px 7px);
+  border: 1px dashed var(--muted);
+}
+
+.data-unavailable,
+.signal-board__summary .data-unavailable,
+.detail-stat-band .data-unavailable {
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
 .peak-pin {
   position: absolute;
   top: 0.75rem;
