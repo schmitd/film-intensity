@@ -29,7 +29,7 @@ Monorepo for a Garmin Connect IQ watch app, web frontend, ingest APIs, and aggre
 4. Run `pnpm dev`.
 5. Run `pnpm build` for the web/backend side.
 6. Run `pnpm watch:sdk` to install Garmin's official Linux SDK archive locally.
-7. Run `pnpm watch:build` to generate a sideloadable `.iq` package for the watch app.
+7. Run `pnpm watch:build` for a generic `.prg` compiler smoke build. Device-specific sideload builds and signed `.iq` exports require additional Garmin setup; see the watch README.
 
 ## Garmin Development
 
@@ -42,4 +42,4 @@ Expected local environment:
 - Connect IQ simulator
 - Garmin signing key for release exports
 
-See [apps/watch/README.md](/mnt/c/Users/David/Documents/Codex%20for%20Windows%20Projects/film-intensity/apps/watch/README.md) for the sideload flow.
+See [apps/watch/README.md](apps/watch/README.md) for the sideload flow.

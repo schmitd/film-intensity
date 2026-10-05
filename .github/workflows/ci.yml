@@ -20,6 +20,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @film-intensity/shared test
+      - run: pnpm test:sensor-replay
+      - run: node --experimental-strip-types --test scripts/upload-core.test.mjs
       - run: pnpm --filter @film-intensity/shared typecheck
       - run: pnpm --filter @film-intensity/worker typecheck
 
@@ -35,6 +37,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @film-intensity/web test
       - run: pnpm --filter @film-intensity/web typecheck
       - run: pnpm --filter @film-intensity/web build
 

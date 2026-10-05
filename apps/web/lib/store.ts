@@ -17,10 +17,12 @@ import {
   type SessionStatus,
   bucketizeSamples,
   extractIntenseMoments,
+  hasIntensityScore,
   summarizeBuckets,
 } from "@film-intensity/shared";
 
 import { generateId, generatePairCode } from "./utils";
+import { newSamplesForBatch, SessionUploadConflict } from "./session-upload";
 
 export type FilmRecord = FilmCatalogEntry & {
   watchFit: string;
@@ -63,7 +65,7 @@ export type DashboardSnapshot = {
   liveSessions: number;
   pairedDevices: number;
   mostIntenseFilmId: string;
-  averagePeakIntensity: number;
+  averagePeakIntensity: number | null;
 };
 
 const STORE_PATH = path.join(process.cwd(), "data", "store.json");
@@ -117,28 +119,45 @@ function aggregateBuckets(sessions: SessionRecord[]): FilmIntensityBucket[] {
 
   return Array.from(grouped.entries())
     .sort(([left], [right]) => left - right)
-    .map(([bucketStartMs, buckets]) => ({
-      bucketStartMs,
-      sampleCount: buckets.reduce((sum, bucket) => sum + bucket.sampleCount, 0),
-      averageHeartRateBpm:
-        Math.round(
-          buckets.reduce((sum, bucket) => sum + (bucket.averageHeartRateBpm ?? 0), 0) /
-            buckets.length,
-        ) || null,
-      averageStressLevel:
-        Math.round(
-          buckets.reduce((sum, bucket) => sum + (bucket.averageStressLevel ?? 0), 0) /
-            buckets.length,
-        ) || null,
-      averageHrvRmssd:
-        Math.round(
-          buckets.reduce((sum, bucket) => sum + (bucket.averageHrvRmssd ?? 0), 0) /
-            buckets.length,
-        ) || null,
-      intensityScore: Math.round(
-        buckets.reduce((sum, bucket) => sum + bucket.intensityScore, 0) / buckets.length,
-      ),
-    }));
+    .map(([bucketStartMs, buckets]) => {
+      const averageAvailable = (values: Array<number | null>) => {
+        const present = values.filter(
+          (value): value is number => value !== null && Number.isFinite(value),
+        );
+        return present.length
+          ? Math.round(
+              present.reduce((sum, value) => sum + value / present.length, 0),
+            )
+          : null;
+      };
+      const scored = buckets.filter(hasIntensityScore);
+      return {
+        bucketStartMs,
+        sampleCount: buckets.reduce(
+          (sum, bucket) => sum + bucket.sampleCount,
+          0,
+        ),
+        usableSampleCount: buckets.reduce(
+          (sum, bucket) => sum + (bucket.usableSampleCount ?? 0),
+          0,
+        ),
+        dataStatus: scored.length
+          ? ("available" as const)
+          : ("insufficient-data" as const),
+        averageHeartRateBpm: averageAvailable(
+          buckets.map((bucket) => bucket.averageHeartRateBpm),
+        ),
+        averageStressLevel: averageAvailable(
+          buckets.map((bucket) => bucket.averageStressLevel),
+        ),
+        averageHrvRmssd: averageAvailable(
+          buckets.map((bucket) => bucket.averageHrvRmssd),
+        ),
+        intensityScore: averageAvailable(
+          scored.map((bucket) => bucket.intensityScore),
+        ),
+      };
+    });
 }
 
 async function persistStore(store: FilmStore) {
@@ -211,7 +230,9 @@ async function readStore(): Promise<FilmStore> {
 }
 
 function getCompletedSessionsForFilm(store: FilmStore, filmId: string) {
-  return store.sessions.filter((session) => session.filmId === filmId && session.status === "complete");
+  return store.sessions.filter(
+    (session) => session.filmId === filmId && session.status === "complete",
+  );
 }
 
 export async function listFilms() {
@@ -285,7 +306,10 @@ export async function createSession(input: CreateFilmSessionRequest) {
 
 export async function pairDevice(input: PairDeviceRequest) {
   const store = await readStore();
-  const session = store.sessions.find((candidate) => candidate.pairCode === input.pairCode);
+  const session = store.sessions.find(
+    (candidate) =>
+      candidate.pairCode === input.pairCode && candidate.status !== "complete",
+  );
 
   if (!session) {
     return null;
@@ -300,7 +324,10 @@ export async function pairDevice(input: PairDeviceRequest) {
   return session;
 }
 
-export async function getActiveSession(deviceId?: string, deviceToken?: string) {
+export async function getActiveSession(
+  deviceId?: string,
+  deviceToken?: string,
+) {
   const store = await readStore();
 
   return store.sessions.find((session) => {
@@ -333,8 +360,17 @@ export async function appendSamples(input: SessionBatch) {
     return null;
   }
 
-  session.samples.push(...input.samples);
-  session.status = "uploading";
+  const additions = newSamplesForBatch(
+    session.samples,
+    input.samples,
+    session.status === "complete",
+  );
+  if (additions.length > 0) {
+    session.samples.push(...additions);
+    session.status = "uploading";
+  }
+  // A previous attempt may have updated the process cache before its write
+  // failed. Re-persist even a replay before acknowledging it as received.
   await persistStore(store);
 
   return session;
@@ -372,6 +408,19 @@ export async function completeSession(input: SessionComplete) {
     return null;
   }
 
+  if (input.totalSamples !== session.samples.length) {
+    throw new SessionUploadConflict(
+      "Completion sample count does not match received samples.",
+    );
+  }
+
+  // Retries can carry a later timestamp or different detected capabilities after
+  // a watch restart. Keep the first accepted completion metadata unchanged.
+  if (session.status === "complete") {
+    await persistStore(store);
+    return session;
+  }
+
   session.status = "complete";
   session.capabilities = input.capabilities;
   session.completedAt = input.completedAt;
@@ -380,7 +429,9 @@ export async function completeSession(input: SessionComplete) {
   return session;
 }
 
-export async function getFilmBuckets(filmId: string): Promise<FilmIntensityBucket[]> {
+export async function getFilmBuckets(
+  filmId: string,
+): Promise<FilmIntensityBucket[]> {
   const store = await readStore();
 
   const relevantSessions = getCompletedSessionsForFilm(store, filmId);
@@ -398,7 +449,9 @@ export async function getFilmMoments(filmId: string): Promise<IntenseMoment[]> {
   return extractIntenseMoments(buckets, 5);
 }
 
-export async function getFilmSummary(filmId: string): Promise<FilmIntensitySummary> {
+export async function getFilmSummary(
+  filmId: string,
+): Promise<FilmIntensitySummary> {
   const buckets = await getFilmBuckets(filmId);
 
   return summarizeBuckets(buckets);
@@ -412,16 +465,21 @@ export async function getFeaturedFilms(): Promise<FeaturedFilm[]> {
       ...film,
       summary: await getFilmSummary(film.id),
       completedViewerCount: sessions.filter(
-        (session) => session.filmId === film.id && session.status === "complete",
+        (session) =>
+          session.filmId === film.id && session.status === "complete",
       ).length,
       liveSessionCount: sessions.filter(
-        (session) => session.filmId === film.id && session.status !== "complete",
+        (session) =>
+          session.filmId === film.id && session.status !== "complete",
       ).length,
       intenseMoments: await getFilmMoments(film.id),
     })),
   );
 
-  return featured.sort((left, right) => right.summary.peakIntensity - left.summary.peakIntensity);
+  return featured.sort(
+    (left, right) =>
+      (right.summary.peakIntensity ?? -1) - (left.summary.peakIntensity ?? -1),
+  );
 }
 
 export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
@@ -432,20 +490,27 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
     listFilms(),
   ]);
 
-  const completedSessions = sessions.filter((session) => session.status === "complete");
+  const completedSessions = sessions.filter(
+    (session) => session.status === "complete",
+  );
+  const scoredFilms = featured.filter(
+    (film) => film.summary.peakIntensity !== null,
+  );
 
   return {
     totalFilms: films.length,
     completedSessions: completedSessions.length,
     liveSessions: liveSessions.length,
     pairedDevices: sessions.filter((session) => session.deviceId).length,
-    mostIntenseFilmId: featured[0]?.id ?? "",
+    mostIntenseFilmId: scoredFilms[0]?.id ?? "",
     averagePeakIntensity:
-      featured.length > 0
+      scoredFilms.length > 0
         ? Math.round(
-            featured.reduce((sum, film) => sum + film.summary.peakIntensity, 0) /
-              featured.length,
+            scoredFilms.reduce(
+              (sum, film) => sum + (film.summary.peakIntensity as number),
+              0,
+            ) / scoredFilms.length,
           )
-        : 0,
+        : null,
   };
 }

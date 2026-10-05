@@ -27,17 +27,21 @@ export default async function FilmPage({
     notFound();
   }
 
-  const [buckets, moments, summary, sessions, liveSessions] = await Promise.all([
-    getFilmBuckets(filmId),
-    getFilmMoments(filmId),
-    getFilmSummary(filmId),
-    listSessions(),
-    listLiveSessions(),
-  ]);
+  const [buckets, moments, summary, sessions, liveSessions] = await Promise.all(
+    [
+      getFilmBuckets(filmId),
+      getFilmMoments(filmId),
+      getFilmSummary(filmId),
+      listSessions(),
+      listLiveSessions(),
+    ],
+  );
   const completedSessions = sessions.filter(
     (session) => session.filmId === filmId && session.status === "complete",
   );
-  const liveSessionsForFilm = liveSessions.filter((session) => session.filmId === filmId);
+  const liveSessionsForFilm = liveSessions.filter(
+    (session) => session.filmId === filmId,
+  );
 
   return (
     <main className="page-shell">
@@ -58,16 +62,36 @@ export default async function FilmPage({
         <div className="detail-stat-band">
           <div>
             <span>Peak intensity</span>
-            <strong>{summary.peakIntensity}</strong>
+            <strong
+              className={
+                summary.peakIntensity === null ? "data-unavailable" : undefined
+              }
+            >
+              {summary.peakIntensity ?? "Insufficient data"}
+            </strong>
           </div>
           <div>
             <span>Typical intensity</span>
-            <strong>{summary.averageIntensity}</strong>
+            <strong
+              className={
+                summary.averageIntensity === null
+                  ? "data-unavailable"
+                  : undefined
+              }
+            >
+              {summary.averageIntensity ?? "Insufficient data"}
+            </strong>
           </div>
           <div>
             <span>Main pattern</span>
-            <strong className={`band-text ${classifyIntensity(summary.peakIntensity)}`}>
-              {summary.dominantBand}
+            <strong
+              className={
+                summary.dominantBand === null
+                  ? "data-unavailable"
+                  : `band-text ${classifyIntensity(summary.peakIntensity)}`
+              }
+            >
+              {summary.dominantBand ?? "Insufficient data"}
             </strong>
           </div>
         </div>
@@ -112,14 +136,25 @@ export default async function FilmPage({
                 </div>
                 <div className="session-tags">
                   <span className="mono">{session.samples.length} samples</span>
-                  <span>{session.capabilities.hrv ? "HRV present" : "HRV unavailable"}</span>
-                  <span>{session.capabilities.stress ? "Stress tracked" : "Stress unavailable"}</span>
+                  <span>
+                    {session.capabilities.hrv
+                      ? "HRV present"
+                      : "HRV unavailable"}
+                  </span>
+                  <span>
+                    {session.capabilities.stress
+                      ? "Stress tracked"
+                      : "Stress unavailable"}
+                  </span>
                 </div>
               </li>
             ))}
           </ul>
 
-          <section className="live-tower" aria-labelledby="active-capture-title">
+          <section
+            className="live-tower"
+            aria-labelledby="active-capture-title"
+          >
             <h3 id="active-capture-title">Active capture state</h3>
             {liveSessionsForFilm.length ? (
               <ul className="active-session-list">
