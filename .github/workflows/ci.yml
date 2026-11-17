@@ -20,6 +20,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @film-intensity/shared test
+      - run: node --test scripts/watch-recording.test.mjs
       - run: pnpm test:sensor-replay
       - run: node --experimental-strip-types --test scripts/upload-core.test.mjs
       - run: pnpm --filter @film-intensity/shared typecheck
