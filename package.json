@@ -11,6 +11,8 @@
     "dev": "turbo run dev --parallel",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "test:sensor-replay": "node --experimental-strip-types --test scripts/sensor-replay/replay.test.mjs",
+    "sensor:replay": "node --experimental-strip-types scripts/sensor-replay/report.mjs",
     "test:e2e:api": "node scripts/e2e-api-smoke.mjs",
     "typecheck": "turbo run typecheck",
     "watch:sdk": "pnpm --filter @film-intensity/watch sdk:install",

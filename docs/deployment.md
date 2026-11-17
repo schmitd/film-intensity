@@ -1,5 +1,20 @@
 # Deployment And Release
 
+## Saved Work Branch
+
+Automatic Vercel Git deployments are disabled for exactly
+`agent/film-intensity-cloud-hardening-2026-10-05` in the root `vercel.json`.
+This allows the reviewed work to be saved in a branch/draft PR without an
+automatic preview. Other branches, including `main`, retain their existing
+behavior. No Vercel account, access, or production settings were changed.
+
+Keep the branch name and exact deployment rule aligned before pushing. If the
+branch is renamed, review its deployment rule before the first push. This rule
+does not authorize a manual deployment, merge, or production rollout. Read-result
+schema 2 still needs the compatibility decision described in `data-quality.md`.
+
+Reference: https://vercel.com/docs/project-configuration/git-configuration
+
 ## Web Frontend
 
 1. Create a Vercel project rooted at `apps/web`.

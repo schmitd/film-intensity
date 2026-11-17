@@ -1,0 +1,2 @@
+# Preserve the licensed source excerpt byte-for-byte, including CRLF.
+fixtures/sensor-replay/physionet-S01-HR-excerpt.csv -text whitespace=cr-at-eol

@@ -2,11 +2,7 @@ import Link from "next/link";
 import { classifyIntensity, type SessionStatus } from "@film-intensity/shared";
 
 import { CreateSessionForm } from "../components/create-session-form";
-import {
-  getFeaturedFilms,
-  listLiveSessions,
-  listSessions,
-} from "../lib/store";
+import { getFeaturedFilms, listLiveSessions, listSessions } from "../lib/store";
 import { formatTime } from "../lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -61,7 +57,9 @@ export default async function HomePage() {
     listSessions(),
   ]);
   const recentSessions = sessions.slice(0, 5);
-  const activeSession = liveSessions[0] ?? recentSessions.find((session) => session.status !== "complete");
+  const activeSession =
+    liveSessions[0] ??
+    recentSessions.find((session) => session.status !== "complete");
   const filmChoices = buildFilmChoices(featuredFilms);
   const filmsWithResults = featuredFilms
     .filter((film) => film.completedViewerCount > 0)
@@ -70,14 +68,20 @@ export default async function HomePage() {
   return (
     <main className="page-shell">
       <section className="setup-grid" aria-label="Start a session">
-        <section className="panel setup-panel" aria-labelledby="create-session-title">
+        <section
+          className="panel setup-panel"
+          aria-labelledby="create-session-title"
+        >
           <div className="section-heading">
             <h1 id="create-session-title">Create a session</h1>
           </div>
           <CreateSessionForm films={filmChoices} />
         </section>
 
-        <aside className="panel status-panel" aria-label="Current session status">
+        <aside
+          className="panel status-panel"
+          aria-label="Current session status"
+        >
           <div className="section-heading">
             <h2>Current session</h2>
           </div>
@@ -100,8 +104,13 @@ export default async function HomePage() {
                   <dd>{activeSession.deviceModel ?? "Waiting"}</dd>
                 </div>
               </dl>
-              <p className="muted">{STATUS_COPY[activeSession.status].detail}</p>
-              <Link className="button button-secondary" href={`/films/${activeSession.filmId}`}>
+              <p className="muted">
+                {STATUS_COPY[activeSession.status].detail}
+              </p>
+              <Link
+                className="button button-secondary"
+                href={`/films/${activeSession.filmId}`}
+              >
                 Open results
               </Link>
             </div>
@@ -113,7 +122,10 @@ export default async function HomePage() {
         </aside>
       </section>
 
-      <section className="results-grid results-grid-single" aria-label="Film results">
+      <section
+        className="results-grid results-grid-single"
+        aria-label="Film results"
+      >
         <section className="panel" aria-labelledby="results-title">
           <div className="section-heading">
             <h2 id="results-title">Results</h2>
@@ -126,12 +138,23 @@ export default async function HomePage() {
                     <div className="film-main">
                       <div className="film-title-line">
                         <h3>{film.title}</h3>
-                        <span className={`band-pill ${classifyIntensity(film.summary.peakIntensity)}`}>
-                          {film.summary.peakIntensity}
-                        </span>
+                        {film.summary.peakIntensity === null ? (
+                          <span className="data-unavailable">
+                            Insufficient data
+                          </span>
+                        ) : (
+                          <span
+                            className={`band-pill ${classifyIntensity(film.summary.peakIntensity)}`}
+                          >
+                            {film.summary.peakIntensity}
+                          </span>
+                        )}
                       </div>
                       <div className="film-meta">
-                        <span>{film.summary.dominantBand}</span>
+                        <span>
+                          {film.summary.dominantBand ??
+                            "No usable intensity result"}
+                        </span>
                         <span>{film.runtimeMinutes} min</span>
                         <span>{film.completedViewerCount} completed</span>
                         <span>{film.liveSessionCount} active</span>
@@ -162,7 +185,9 @@ export default async function HomePage() {
                   <p>{formatTime(session.completedAt ?? session.createdAt)}</p>
                 </div>
                 <div className="session-tags">
-                  <span className={`status-tag status-${session.status}`}>{STATUS_COPY[session.status].label}</span>
+                  <span className={`status-tag status-${session.status}`}>
+                    {STATUS_COPY[session.status].label}
+                  </span>
                   <span className="mono">{session.pairCode}</span>
                   <span>{session.deviceModel ?? "waiting for watch"}</span>
                 </div>

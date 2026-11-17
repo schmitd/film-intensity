@@ -339,7 +339,9 @@ class SessionManager {
 
         _pendingBatch = _buffer.takeBatch(_uploadBatchSize);
         _requestInFlight = true;
-        _phase = "UPLOADING";
+        // Upload is transport state, not a reason to pause live capture.
+        // Keep RECORDING until the user explicitly finishes the session.
+        _phase = _completionRequested ? "UPLOADING" : "RECORDING";
         _uploadNote = "Uploading " + _pendingBatch.size() + " samples";
         _nextUploadAttemptAt = 0;
         persistUploadState();
